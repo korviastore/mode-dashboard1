@@ -6,7 +6,6 @@ export async function handler(event) {
 
   const opts = (siteID && token) ? { siteID, token } : undefined;
 
-  // CORS
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
@@ -18,7 +17,6 @@ export async function handler(event) {
     };
   }
 
-  // Ortam hiç hazır değilse, getStore'u çağırmadan net hata ver
   if (!opts && !process.env.NETLIFY_BLOBS_CONTEXT) {
     return {
       statusCode: 500,

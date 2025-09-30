@@ -1,14 +1,8 @@
-// netlify/functions/state.mjs
 import { getStore } from '@netlify/blobs';
 
 export async function handler(event) {
-  const siteID =
-    process.env.BLOB_SITE_ID ||
-    process.env.NETLIFY_SITE_ID;
-
-  const token =
-    process.env.BLOB_TOKEN ||
-    process.env.NETLIFY_API_TOKEN;
+  const siteID = process.env.BLOB_SITE_ID || process.env.NETLIFY_SITE_ID;
+  const token  = process.env.BLOB_TOKEN    || process.env.NETLIFY_API_TOKEN;
 
   const opts = (siteID && token) ? { siteID, token } : undefined;
 
@@ -24,7 +18,7 @@ export async function handler(event) {
     };
   }
 
-  // Ortam hiç hazır değilse, getStore'u çağırmadan NET hata ver (patlamasın)
+  // Ortam hiç hazır değilse, getStore'u çağırmadan net hata ver
   if (!opts && !process.env.NETLIFY_BLOBS_CONTEXT) {
     return {
       statusCode: 500,

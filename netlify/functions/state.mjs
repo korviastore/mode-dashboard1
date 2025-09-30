@@ -1,26 +1,18 @@
 // netlify/functions/state.mjs
 import { getStore } from '@netlify/blobs';
 
-/**
- * Çalışma mantığı:
- * - Projede Blobs aktifse: getStore('mode-dashboard') tek başına çalışır.
- * - Aktif değilse: NETLIFY_SITE_ID (Netlify'in verdiği hazır env) + BLOB_TOKEN/NETLIFY_API_TOKEN
- *   ya da elle eklediğimiz BLOB_SITE_ID + BLOB_TOKEN ile manuel çalışır.
- */
 export async function handler(event) {
-  // Env: Netlify hazır değişkeni + elle verdiğimiz fallback
   const siteID =
     process.env.BLOB_SITE_ID ||
-    process.env.NETLIFY_SITE_ID; // Netlify otomatik sağlıyor (bazı bağlamlarda olmayabiliyor)
+    process.env.NETLIFY_SITE_ID;
 
   const token =
     process.env.BLOB_TOKEN ||
-    process.env.NETLIFY_API_TOKEN; // senin eklediğin gizli token
+    process.env.NETLIFY_API_TOKEN;
 
-  // Eğer siteID + token varsa elle client; yoksa otomatik (Blobs UI açık ise)
   const opts = (siteID && token) ? { siteID, token } : undefined;
 
-  // CORS preflight
+  // CORS
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
@@ -32,7 +24,7 @@ export async function handler(event) {
     };
   }
 
-  // Hiçbir yol yoksa (ne UI’de Blobs var ne token verdik) net bir teşhis dön.
+  // Ortam hiç hazır değilse, getStore'u çağırmadan NET hata ver (patlamasın)
   if (!opts && !process.env.NETLIFY_BLOBS_CONTEXT) {
     return {
       statusCode: 500,

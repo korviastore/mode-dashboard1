@@ -1,16 +1,31 @@
 import { getStore } from '@netlify/blobs';
 
-// Bu fonksiyon, iki modda çalışır:
-// 1) Projede Blobs aktifse: getStore('mode-dashboard') tek başına yeter.
-// 2) Aktif değilse: NETLIFY_SITE_ID (Netlify'in verdiği hazır env) + BLOB_TOKEN/NETLIFY_API_TOKEN ile manuel çalışır.
+/**
+ * Çalışma mantığı:
+ * - Eğer projede Blobs aktifse: getStore('mode-dashboard') tek başına çalışır.
+ * - Aktif değilse: NETLIFY_SITE_ID (Netlify'in verdiği hazır env) + BLOB_TOKEN/NETLIFY_API_TOKEN ile manuel çalışır.
+ *   Bu sayede "MissingBlobsEnvironmentError" ortadan kalkar.
+ */
 export async function handler(event) {
-  // Netlify her deploy'da otomatik sağlar:
   const siteID = process.env.BLOB_SITE_ID || process.env.NETLIFY_SITE_ID;
-  // Gizli token'ı sen ekleyeceksin (Environment variables):
-  const token  = process.env.BLOB_TOKEN || process.env.NETLIFY_API_TOKEN;
+  const token  = process.env.BLOB_TOKEN    || process.env.NETLIFY_API_TOKEN;
 
-  // Eğer token varsa manuel client, yoksa otomatik (aktifse)
   const opts = (siteID && token) ? { siteID, token } : undefined;
+
+  // Debug için ilk çağrıda kolay teşhis (yayına uygun)
+  if (!opts && !process.env.NETLIFY_BLOBS_CONTEXT) {
+    // Bu durumda projede Blobs store’u oluşturulmamış ve token da verilmemiş demektir.
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({
+        error: 'Blobs not configured',
+        hint: 'Add a BLOB_TOKEN (or NETLIFY_API_TOKEN) env var OR create a Blobs database in Netlify.',
+        hasNetlifySiteId: Boolean(process.env.NETLIFY_SITE_ID)
+      })
+    };
+  }
+
   const store = getStore('mode-dashboard', opts);
 
   // CORS preflight

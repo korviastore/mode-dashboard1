@@ -1,10 +1,11 @@
+// netlify/functions/state.js
 import { getStore } from '@netlify/blobs';
 
 export async function handler(event) {
+  // SADECE manuel yol: env yoksa asla getStore çağırma
   const siteID = process.env.BLOB_SITE_ID || process.env.NETLIFY_SITE_ID;
   const token  = process.env.BLOB_TOKEN    || process.env.NETLIFY_API_TOKEN;
 
-  // --- ZORUNLU: Manual yol. Token/siteID yoksa asla getStore çağırma.
   if (!siteID || !token) {
     return {
       statusCode: 500,

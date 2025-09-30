@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MODE IMPLANT • OEE/KPI Dashboard + Üst Şerit</title>
+<style>
+/* ================== Kök ve Genel ================== */
+:root{
+  --bg:#0f1115; --panel:#0b1220; --panel2:#0f172a; --ink:#e7e9ee; --muted:#a2acbc; --line:#1f2937;
+  --oee:#22c55e; --kpi:#1f3b92; --res:#fde68a; --target:#6b7789; --actual:#10b981; --scrap:#ef4444; --ring:#60a5fa; --blue:#1d4ed8;
+  --g-scale:1.10;
+  --g-extra:0px;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial;
+  font-weight:600; display:flex; flex-direction:column; min-height:100vh;
+}
+
+/* ================== Üst Şerit ================== */
+.header{ padding:8px 10px 4px 10px; }
+.hbar{
+  display:grid; grid-template-columns: 70px 140px 200px 1fr 150px; gap:8px; align-items:stretch;
+}
+.logoSlot{
+  width:70px; height:70px; border-radius:50%; overflow:hidden; border:2px solid #3b4454; background:#0a0f18;
+  display:flex; align-items:center; justify-content:center;
+}
+.logoSlot img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+.box-gray,.box-dark,.box-blue{
+  border-radius:6px; border:1px solid #1f2226; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:6px 8px;
+}
+.box-gray{ background:linear-gradient(#b3b7bd,#8e949d); color:#0c0d0f; border-color:#666a70; }
+.box-dark{ background:#303438; color:#fff; }
+.box-blue{ background:#1e64ff; color:#fff; border-color:#174fd0; }
+
+.b-title{font-weight:800; font-size:13px; line-height:1.1}
+.b-value{font-weight:900; font-size:20px; letter-spacing:.5px; line-height:1.15}
+.box-dark .b-value{ font-size:18px; }
+
+/* Tek satır: Hedef(Yıl) Karşılama */
+.long-dark{
+  background:#303438; color:#fff; border-radius:6px; border:1px solid #1f2226;
+  display:flex; align-items:center; justify-content:center; padding:6px 12px; font-weight:800; text-align:center;
+}
+.meet-line{ white-space:nowrap; font-size:14px; }
+.meet-line span{ vertical-align:middle; }
+
+/* Alt satır: dilimleyici + tarih */
+.hsub{
+  display:grid; grid-template-columns: 70px 1fr; gap:8px; align-items:center; margin-top:6px;
+}
+.sliceRow{ display:flex; align-items:center; gap:12px; }
+.select{
+  background:#fff; color:#111; border:1px solid #c7ccd4; border-radius:6px; padding:6px 10px; font-weight:700; font-size:14px; outline:0;
+}
+.h-date{ color:#d6d8dc; font-weight:800; font-size:16px; }
+
+/* ================== Gövde ve Kart ================== */
+.top{padding:8px 10px 4px}
+.bottom{padding:4px 10px 8px}
+body:not(.has-detail) .bottom{display:none}
+body.has-detail .top{height:auto}
+
+.card{
+  width:100%; background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 24px 80px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+  display:flex; flex-direction:column;
+}
+
+/* ================== Genel OEE/KPI Satırları ================== */
+.general-head{
+  padding:8px 10px; border-bottom:1px solid var(--line); font-weight:700;
+  font-size:calc(14px * var(--g-scale)); letter-spacing:.3px;
+}
+.general-wrap{
+  padding:8px 8px 0 8px; display:grid; gap:6px; transform-origin: top left;
+  transform: scale(var(--g-scale)); width: calc(100% / var(--g-scale)); position:relative;
+}
+.general-wrap::after{content:""; display:block; height:var(--g-extra)}
+
+.g-row{
+  display:grid; grid-template-columns: 200px 1fr 1fr 90px; gap:10px; align-items:center;
+  padding:10px 12px; border-radius:12px; cursor:pointer; user-select:none;
+  transition: background .18s ease, box-shadow .18s ease;
+}
+.g-row:hover{ background:rgba(255,255,255,.04) }
+.g-row.active{ box-shadow:0 0 0 2px var(--ring) inset; background:rgba(96,165,250,.09) }
+
+.g-label{font-weight:700; font-size:14px}
+.g-barbox{
+  position:relative; height:40px; background:#0a1425; border:1px solid #152033; border-radius:10px; overflow:hidden; display:flex; align-items:center;
+}
+.g-bar{ height:100%; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; white-space:nowrap; transition:width .35s ease; color:#fff; text-shadow:0 0 3px rgba(0,0,0,.55); }
+.g-bar.oee{background:var(--oee)} .g-bar.kpi{background:var(--kpi)}
+.g-res{font-weight:800; color:var(--res); text-align:right; font-size:15px}
+.g-label-in{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:900; text-shadow:0 0 3px rgba(0,0,0,.55); pointer-events:none; }
+
+/* ================== Detay Paneller ================== */
+.sheet{
+  width:100%; display:none;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 24px 80px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.03);
+  padding:6px 8px; margin-top:8px;
+}
+.sheet.active{display:block}
+
+/* Başlıkları ortala */
+.grid-head{
+  display:grid; grid-template-columns: 180px 3fr 2fr 100px; gap:8px; align-items:center;
+  font-size:12px; color:#aeb6c4; text-transform:uppercase; letter-spacing:.15em;
+  padding:2px 4px 6px; border-bottom:1px solid var(--line);
+}
+.grid-head > div{ display:flex; align-items:center; justify-content:center; text-align:center; }
+.cap-hgr, .cap-kk, .cap-res{ width:100% }
+.cap-hgr span, .cap-kk span, .cap-res{ display:block; width:100%; text-align:center; }
+
+/* Satırlar (iç scroll yok) */
+.rows{ height:auto; max-height:none; overflow:visible; padding-right:0; }
+
+/* Satır yapısı */
+.row{
+  display:grid; grid-template-columns: 180px 3fr 2fr 100px; gap:8px; align-items:center;
+  padding:6px 2px; border-bottom:1px dashed #1c2737;
+}
+.r-name{
+  font-weight:700; padding:6px 8px; border-radius:10px; background:#0a1322; border:1px solid #172133;
+  cursor:pointer; transition: background .16s ease, box-shadow .16s ease, color .16s ease;
+  font-size:12px; text-align:center;
+}
+.r-name:hover{ background:#0f1a2d }
+.r-name.selected{ box-shadow:0 0 0 2px var(--ring) inset; color:#cfe3ff; background:#0e203a }
+
+/* Hedef / Gerçekleşen / Red barları */
+.hgr{display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px}
+.hgr-box{position:relative; height:16px; background:#091323; border:1px solid #132036; border-radius:6px; overflow:visible}
+.hgr-bar{height:100%; transition:width .25s ease}
+.hgr-bar.target{background:var(--target)}
+.hgr-bar.actual{background:var(--actual)}
+.hgr-bar.scrap{background:var(--scrap)}
+.lbl-in{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#e7eef7; text-shadow:0 0 3px rgba(0,0,0,.55); pointer-events:none}
+.scrapOut{position:absolute; top:50%; transform:translateY(-50%); left:0; margin-left:6px; z-index:5; pointer-events:none; font-size:11px; font-weight:900; color:var(--scrap); text-shadow:0 0 2px rgba(0,0,0,.45)}
+
+/* OEE/KPI küçük barlar */
+.kk{display:grid; grid-template-columns: 1fr 1fr; gap:6px}
+.kk-box{position:relative; height:16px; background:#091323; border:1px solid #132036; border-radius:6px; overflow:visible}
+.kk-bar{height:100%; transition:width .25s ease}
+.kk-bar.oee{background:var(--oee)} .kk-bar.kpi{background:var(--kpi)}
+.kk-label{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:900; color:#fff; text-shadow:0 0 3px rgba(0,0,0,.55); pointer-events:none}
+
+/* Sonuç */
+.res{
+  text-align:center; font-weight:800; color:var(--res); border:1px solid #2a3546; background:#0a1322;
+  border-radius:8px; padding:4px 0; font-size:12px
+}
+
+/* Satır içi editör */
+.editor{grid-column:1/-1; display:none; gap:8px; align-items:center; background:#0a1322; border:1px dashed #304258; border-radius:8px; padding:8px; margin:4px 0 6px 0}
+.editor.show{display:grid; grid-template-columns: 180px 1fr 1fr 1fr 1fr 1fr auto}
+.editor label{font-size:11px; color:var(--muted)}
+.editor input{
+  width:100%; padding:6px 8px; border-radius:6px; border:1px solid #334155; background:#0e1726; color:#e2e8f0;
+  font-weight:800; text-align:center; outline:0; transition:box-shadow .15s ease; font-size:12px
+}
+.editor input:focus{box-shadow:0 0 0 2px var(--ring)}
+.closeBtn{padding:6px 10px; border-radius:6px; border:1px solid #334155; background:#0e1726; color:#cbd5e1; font-weight:700; cursor:pointer; font-size:12px}
+.closeBtn:hover{background:#13223b}
+
+/* CNC okunaklılık + Kalite/Kumlama bir tık daha büyük */
+#cncSheet .grid-head, #cncSheet .lbl-in, #cncSheet .scrapOut { font-size:12px }
+#cncSheet .r-name, #cncSheet .kk-label, #cncSheet .res, #cncSheet .editor input, #cncSheet .closeBtn { font-size:13px }
+
+#kaliteSheet .grid-head, #kaliteSheet .lbl-in, #kaliteSheet .scrapOut { font-size:13px }
+#kaliteSheet .hgr-box, #kaliteSheet .kk-box { height:18px }
+#kaliteSheet .r-name, #kaliteSheet .kk-label, #kaliteSheet .res, #kaliteSheet .editor input, #kaliteSheet .closeBtn { font-size:14px }
+#kaliteSheet .row{ padding:8px 2px }
+
+#kumSheet .grid-head, #kumSheet .lbl-in, #kumSheet .scrapOut { font-size:13px }
+#kumSheet .hgr-box, #kumSheet .kk-box { height:18px }
+#kumSheet .r-name, #kumSheet .kk-label, #kumSheet .res, #kumSheet .editor input, #kumSheet .closeBtn { font-size:14px }
+#kumSheet .row{ padding:8px 2px }
+
+/* Üst şerit küçük ayar */
+.meet-line { font-size: 14px; }
+#hd-meet, #hd-meetPct { font-size: 18px; font-weight: 900; }
+</style>
+</head>
+<body>
+
+<!-- ================== ÜST ŞERİT ================== -->
+<section class="header">
+  <div class="hbar">
+    <div class="logoSlot"><img src="logo.png" alt="MODE Implant" /></div>
+
+    <div class="box-gray">
+      <div class="b-title">Süre(Gün)</div>
+      <div class="b-value" id="hd-days">0</div>
+    </div>
+
+    <div class="box-dark">
+      <div class="b-title">Hedef (Yıl)</div>
+      <div class="b-value" id="hd-target">0</div>
+    </div>
+
+    <div class="long-dark">
+      <div class="meet-line">
+        <span>Hedef(Yıl) Karşılama Ad.</span>&nbsp;<span id="hd-meet">0</span>&nbsp;<span id="hd-meetPct">%0</span>
+      </div>
+    </div>
+
+    <div class="box-blue">
+      <div class="b-value" id="hd-now">0</div>
+      <div class="b-sub" id="hd-nowPct">%0</div>
+    </div>
+  </div>
+
+  <div class="hsub">
+    <div></div>
+    <div class="sliceRow">
+      <select class="select" id="sel-istasyon">
+        <option>Tümü</option>
+        <option>İmplant</option>
+        <option>Abutment</option>
+        <option>Protetik</option>
+        <option>Cerrahi Set</option>
+        <option>İstasyonlar</option>
+      </select>
+      <div class="h-date" id="hd-date">—</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================== GENEL BLOK ================== -->
+<section class="top">
+  <div class="card">
+    <div class="general-head">Genel OEE / KPI</div>
+
+    <div class="general-wrap" id="generalWrap">
+      <div class="g-row" id="g-row-cnc" data-panel="cncSheet" role="button">
+        <div class="g-label">CNC</div>
+        <div class="g-barbox">
+          <div class="g-bar oee" id="g-cnc-oee" style="width:0%"></div>
+          <div class="g-label-in" id="g-cnc-oee-t">0%</div>
+        </div>
+        <div class="g-barbox">
+          <div class="g-bar kpi" id="g-cnc-kpi" style="width:0%"></div>
+          <div class="g-label-in" id="g-cnc-kpi-t">0%</div>
+        </div>
+        <div class="g-res" id="g-cnc-res">0%</div>
+      </div>
+
+      <div class="g-row" id="g-row-kalite" data-panel="kaliteSheet" role="button">
+        <div class="g-label">Kalite Kontrol</div>
+        <div class="g-barbox">
+          <div class="g-bar oee" id="g-kalite-oee" style="width:0%"></div>
+          <div class="g-label-in" id="g-kalite-oee-t">0%</div>
+        </div>
+        <div class="g-barbox">
+          <div class="g-bar kpi" id="g-kalite-kpi" style="width:0%"></div>
+          <div class="g-label-in" id="g-kalite-kpi-t">0%</div>
+        </div>
+        <div class="g-res" id="g-kalite-res">0%</div>
+      </div>
+
+      <div class="g-row" id="g-row-kum" data-panel="kumSheet" role="button">
+        <div class="g-label">Kumlama</div>
+        <div class="g-barbox">
+          <div class="g-bar oee" id="g-kum-oee" style="width:0%"></div>
+          <div class="g-label-in" id="g-kum-oee-t">0%</div>
+        </div>
+        <div class="g-barbox">
+          <div class="g-bar kpi" id="g-kum-kpi" style="width:0%"></div>
+          <div class="g-label-in" id="g-kum-kpi-t">0%</div>
+        </div>
+        <div class="g-res" id="g-kum-res">0%</div>
+      </div>
+
+      <div class="g-row" id="g-row-paket" data-panel="paketSheet" role="button">
+        <div class="g-label">İmplant Paketleme</div>
+        <div class="g-barbox">
+          <div class="g-bar oee" id="g-paket-oee" style="width:0%"></div>
+          <div class="g-label-in" id="g-paket-oee-t">0%</div>
+        </div>
+        <div class="g-barbox">
+          <div class="g-bar kpi" id="g-paket-kpi" style="width:0%"></div>
+          <div class="g-label-in" id="g-paket-kpi-t">0%</div>
+        </div>
+        <div class="g-res" id="g-paket-res">0%</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================== DETAY PANELLER ================== -->
+<section class="bottom">
+  <div class="sheet" id="cncSheet">
+    <div class="grid-head">
+      <div>CNC</div>
+      <div class="cap-hgr"><span>Hedef</span><span>Gerçekleşen</span><span>Red</span></div>
+      <div class="cap-kk"><span>OEE (%)</span><span>KPI (%)</span></div>
+      <div class="cap-res">SONUÇ (%)</div>
+    </div>
+    <div class="rows" id="cncRows"></div>
+  </div>
+
+  <div class="sheet" id="kaliteSheet">
+    <div class="grid-head">
+      <div>Ürün</div>
+      <div class="cap-hgr"><span>Hedef</span><span>Gerçekleşen</span><span>Red</span></div>
+      <div class="cap-kk"><span>OEE (%)</span><span>KPI (%)</span></div>
+      <div class="cap-res">SONUÇ (%)</div>
+    </div>
+    <div class="rows" id="kaliteRows"></div>
+  </div>
+
+  <div class="sheet" id="kumSheet">
+    <div class="grid-head">
+      <div>İstasyon</div>
+      <div class="cap-hgr"><span>Hedef</span><span>Gerçekleşen</span><span>Red</span></div>
+      <div class="cap-kk"><span>OEE (%)</span><span>KPI (%)</span></div>
+      <div class="cap-res">SONUÇ (%)</div>
+    </div>
+    <div class="rows" id="kumRows"></div>
+  </div>
+
+  <div class="sheet" id="paketSheet">
+    <div class="grid-head">
+      <div>Paketleme</div>
+      <div class="cap-hgr"><span>Hedef</span><span>Gerçekleşen</span><span>Red</span></div>
+      <div class="cap-kk"><span>OEE (%)</span><span>KPI (%)</span></div>
+      <div class="cap-res">SONUÇ (%)</div>
+    </div>
+    <div class="rows" id="paketRows"></div>
+  </div>
+</section>
+
+<script>
+/* ================== ÜST ŞERİT ================== */
+const headerData={ days:109, targetYear:350000, meetQty:151288, meetPct:43, nowQty:23870, nowPct:7, dateText:"15-20 Eylül" };
+const fmtTR = n => Number(n||0).toLocaleString('tr-TR');
+
+function initHeader(){
+  document.getElementById('hd-days').textContent   = headerData.days;
+  document.getElementById('hd-target').textContent = fmtTR(headerData.targetYear);
+  document.getElementById('hd-meet').textContent   = fmtTR(headerData.meetQty);
+  document.getElementById('hd-meetPct').textContent= '%' + headerData.meetPct;
+  document.getElementById('hd-now').textContent    = fmtTR(headerData.nowQty);
+  document.getElementById('hd-nowPct').textContent = '%' + headerData.nowPct;
+  document.getElementById('hd-date').textContent   = headerData.dateText;
+}
+
+/* ================== Yardımcılar ================== */
+const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+const pct=(num,den)=> den>0 ? (num/den*100) : 0;
+const P=n=>Math.round(n);
+const I=n=>Math.max(0,Math.round(+n||0));
+
+/* OEE/KPI Hesabı: cycle & çalışma süresi varsa tam formül, yoksa fallback */
+function calcRow(d){
+  const hedef=I(d.hedef), ger=I(d.gercek), red=I(d.red);
+  const k = pct(ger,hedef); // KPI = target attainment
+
+  if(ger<=0 || hedef<=0){
+    return {o:0, k, s:k/2};
+  }
+
+  const hasTime = (typeof d.cycle === 'number' && d.cycle>0) && (typeof d.calisma === 'number' && d.calisma>0);
+  if(hasTime){
+    const cycle = d.cycle;                 // saniye / adet
+    const opTimeSec = d.calisma * 60;      // dk -> sn
+    const planTimeSec = hedef * cycle;     // hedefe göre planlanan süre
+    // Availability (0..1)
+    let availability = planTimeSec>0 ? (opTimeSec / planTimeSec) : 0; // Eğer 1'den büyükse > plan, ama availability'i 1 ile sınırlarız
+    availability = clamp(availability, 0, 1);
+
+    // Performance (0..∞) ama pratikte 0..1+; 1 üstünü 1.2 ile sınırla
+    let performance = opTimeSec>0 ? ((cycle * ger) / opTimeSec) : 0;
+    performance = clamp(performance, 0, 1.2);
+
+    // Quality (0..1)
+    let quality = ger>0 ? ((ger - red) / ger) : 0;
+    quality = clamp(quality, 0, 1);
+
+    const oee = availability * performance * quality * 100;
+    return {o:oee, k, s:(oee + k)/2};
+  } else {
+    // fallback (cycle/süre yoksa)
+    const good = Math.max(0, ger - red);
+    const oee = pct(good, hedef);
+    return {o:oee, k, s:(oee + k)/2};
+  }
+}
+
+/* Toplamlar: cycle/süre varsa istasyon bazında ağırlıklı birleşik OEE */
+function totals(arr){
+  const H = arr.reduce((a,c)=>a+I(c.hedef),0);
+  const G = arr.reduce((a,c)=>a+I(c.gercek),0);
+  const R = arr.reduce((a,c)=>a+I(c.red),0);
+
+  // Eğer en az birinde zaman bilgisi varsa birleşik OEE’yi doğru toplamsal formülle hesaplayalım
+  const anyTimed = arr.some(c => typeof c.cycle==='number' && c.cycle>0 && typeof c.calisma==='number' && c.calisma>0);
+
+  if(anyTimed && H>0 && G>0){
+    // Plan / Operasyon süreleri ve ideal sürelerin toplamlarını baz al
+    let planTimeSec = 0;
+    let opTimeSec = 0;
+    let idealTimeSec = 0;
+    arr.forEach(c=>{
+      const hedef=I(c.hedef), ger=I(c.gercek), red=I(c.red);
+      const hasTime = typeof c.cycle==='number' && c.cycle>0 && typeof c.calisma==='number' && c.calisma>0;
+      if(hasTime){
+        planTimeSec += hedef * c.cycle;
+        opTimeSec   += c.calisma * 60;
+        idealTimeSec+= ger * c.cycle;
+      }else{
+        // Zaman yoksa bu kalem birleşik OEE’ye fallback katkı yapmayacak; KPI ve Quality’ye yansır
+        // İstersen burada basit yaklaşım: planTimeSec += hedef * Tref; idealTimeSec += ger * Tref kullanabilirdik
+      }
+    });
+    // Availability / Performance / Quality birleşik
+    const availability = (planTimeSec>0) ? clamp(opTimeSec/planTimeSec, 0, 1) : 0;
+    const performance  = (opTimeSec>0)   ? clamp(idealTimeSec/opTimeSec, 0, 1.2) : 0; // 1.2 sınırı
+    const quality      = (G>0) ? clamp((G - R)/G, 0, 1) : 0;
+    const oee = availability * performance * quality * 100;
+
+    return {hedef:H, gercek:G, red:R, o:oee, k:pct(G,H), s:(oee + pct(G,H))/2};
+  }
+
+  // Zaman yoksa fallback
+  const simpleOEE = pct(Math.max(0, G - R), H);
+  return {hedef:H, gercek:G, red:R, o:simpleOEE, k:pct(G,H), s:(simpleOEE + pct(G,H))/2};
+}
+
+function setGeneral(p,t){
+  const o=P(clamp(t.o,0,100));
+  const k=P(clamp(t.k,0,100));
+  const r=P((o+k)/2);
+  document.getElementById(`g-${p}-oee`).style.width=o+'%';
+  document.getElementById(`g-${p}-kpi`).style.width=k+'%';
+  document.getElementById(`g-${p}-oee-t`).textContent=o+'%';
+  document.getElementById(`g-${p}-kpi-t`).textContent=k+'%';
+  document.getElementById(`g-${p}-res`).textContent=r+'%';
+}
+
+/* ================== Kalıcılık (localStorage) ================== */
+const STORAGE_KEY='modeDash_v2_cycles';
+function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):null }catch(e){ return null } }
+function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify({cncData,kaliteData,kumData,paketData})) }catch(e){} }
+
+/* ================== Veriler (varsayılan) ================== */
+const cncData=[{id:"CNC-01",hedef:1580,gercek:1500,red:1},{id:"CNC-02",hedef:463, gercek:445, red:3},{id:"CNC-03",hedef:240, gercek:199, red:2},{id:"CNC-04",hedef:648, gercek:112, red:7},{id:"CNC-05",hedef:648, gercek:0,   red:2},{id:"CNC-06",hedef:648, gercek:610, red:1},{id:"CNC-07",hedef:390, gercek:0,   red:0},{id:"CNC-08",hedef:277, gercek:240, red:2},{id:"CNC-09",hedef:648, gercek:619, red:1},{id:"CNC-10",hedef:997, gercek:990, red:5},{id:"CNC-11",hedef:648, gercek:25,  red:14},{id:"CNC-12",hedef:589, gercek:533, red:11},{id:"CNC-13",hedef:648, gercek:0,   red:0}];
+
+const kaliteData=[{id:"İmplant",hedef:6915,gercek:6915,red:310},{id:"Abutment",hedef:2578,gercek:2578,red:160},{id:"Protetik",hedef:1500,gercek:1500,red:40},{id:"Vida",hedef:2500,gercek:2500,red:75},{id:"Diğer+",hedef:1015,gercek:1015,red:19}];
+
+/* Kumlama: cycle ve çalışma (dk) eklendi — varsayılan: Ayganlar 40 sn, Cubebox 20 sn; çalışma=hedef×cycle/60 */
+const kumData=[
+  {id:"Aygan 1",  hedef:3600,gercek:2343,red:1,  cycle:40, calisma: Math.round(3600*40/60)},
+  {id:"Aygan 2",  hedef:3600,gercek:2876,red:7,  cycle:40, calisma: Math.round(3600*40/60)},
+  {id:"Cubebox",  hedef:7800,gercek:4183,red:18, cycle:20, calisma: Math.round(7800*20/60)},
+];
+
+const paketData=[];
+
+/* Kaydedilmiş durumdan geri yükle (eski sürümden kalanlarda cycle/calisma yoksa defaults korunsun) */
+(function hydrate(){
+  const s=loadState(); if(!s) return;
+  if(Array.isArray(s.cncData))    { cncData.splice(0,cncData.length,...s.cncData); }
+  if(Array.isArray(s.kaliteData)) { kaliteData.splice(0,kaliteData.length,...s.kaliteData); }
+  if(Array.isArray(s.kumData))    { 
+    // Kum datasında cycle/calisma yok ise defaults ile birleştir
+    const mapDefaults = Object.fromEntries(kumData.map(x=>[x.id, x]));
+    const merged = s.kumData.map(x=>{
+      const base = mapDefaults[x.id] || {};
+      return {
+        id: x.id,
+        hedef: I(x.hedef ?? base.hedef ?? 0),
+        gercek: I(x.gercek ?? base.gercek ?? 0),
+        red: I(x.red ?? base.red ?? 0),
+        cycle: I(x.cycle ?? base.cycle ?? 0),
+        calisma: I(x.calisma ?? base.calisma ?? Math.round(I(x.hedef ?? base.hedef ?? 0) * I(x.cycle ?? base.cycle ?? 0)/60))
+      };
+    });
+    kumData.splice(0, kumData.length, ...merged);
+  }
+  if(Array.isArray(s.paketData))  { paketData.splice(0,paketData.length,...s.paketData); }
+})();
+
+/* Yardımcı */
+function redFitsInside(boxEl,percent){ return (boxEl.clientWidth*(percent/100))>=36; }
+
+/* ================== Satır Oluşturucu ================== */
+function makeRow(container,d,generalUpdate,opts={}){
+  const row=document.createElement('div'); row.className='row';
+  const name=document.createElement('div'); name.className='r-name'; name.textContent=d.id;
+
+  const hgr=document.createElement('div'); hgr.className='hgr';
+  const bTbox=document.createElement('div'); bTbox.className='hgr-box';
+  const bT=document.createElement('div'); bT.className='hgr-bar target'; bTbox.appendChild(bT);
+  const tLbl=document.createElement('div'); tLbl.className='lbl-in'; bTbox.appendChild(tLbl);
+
+  const bAbox=document.createElement('div'); bAbox.className='hgr-box';
+  const bA=document.createElement('div'); bA.className='hgr-bar actual'; bAbox.appendChild(bA);
+  const aLbl=document.createElement('div'); aLbl.className='lbl-in'; bAbox.appendChild(aLbl);
+
+  const bSbox=document.createElement('div'); bSbox.className='hgr-box';
+  const bS=document.createElement('div'); bS.className='hgr-bar scrap'; bSbox.appendChild(bS);
+  const sLblIn=document.createElement('div'); sLblIn.className='lbl-in'; bS.appendChild(sLblIn);
+  const sOut=document.createElement('div'); sOut.className='scrapOut'; bSbox.appendChild(sOut);
+
+  hgr.append(bTbox,bAbox,bSbox);
+
+  const kk=document.createElement('div'); kk.className='kk';
+  const oBox=document.createElement('div'); oBox.className='kk-box';
+  const kBox=document.createElement('div'); kBox.className='kk-box';
+  const oBar=document.createElement('div'); oBar.className='kk-bar oee'; oBox.appendChild(oBar);
+  const kBar=document.createElement('div'); kBar.className='kk-bar kpi'; kBox.appendChild(kBar);
+  const oLbl=document.createElement('div'); oLbl.className='kk-label'; oBox.appendChild(oLbl);
+  const kLbl=document.createElement('div'); kLbl.className='kk-label'; kBox.appendChild(kLbl);
+  kk.append(oBox,kBox);
+
+  const res=document.createElement('div'); res.className='res';
+
+  row.append(name,hgr,kk,res);
+  container.append(row);
+
+  /* Inline Editör */
+  const edRow=document.createElement('div'); edRow.className='row';
+  const editor=document.createElement('div'); editor.className='editor';
+
+  // Kum için ekstra inputlar (cycle ve çalışma)
+  if(opts.hasCycle){
+    const defCycle = (typeof d.cycle==='number' && d.cycle>0) ? d.cycle : (d.id.toLowerCase().includes('cubebox') ? 20 : 40);
+    const defCal   = (typeof d.calisma==='number' && d.calisma>0) ? d.calisma : Math.round(I(d.hedef)*defCycle/60);
+    d.cycle   = defCycle;
+    d.calisma = defCal;
+
+    editor.innerHTML=`
+      <div style="font-weight:800">${d.id} • Değer Gir</div>
+      <div><label>Hedef</label><input type="number" min="0" value="${I(d.hedef)}" data-k="hedef"></div>
+      <div><label>Gerçekleşen</label><input type="number" min="0" value="${I(d.gercek)}" data-k="gercek"></div>
+      <div><label>Red</label><input type="number" min="0" value="${I(d.red)}" data-k="red"></div>
+      <div><label>Cycle (sn)</label><input type="number" min="1" value="${I(d.cycle)}" data-k="cycle"></div>
+      <div><label>Çalışma (dk)</label><input type="number" min="1" value="${I(d.calisma)}" data-k="calisma"></div>
+      <button class="closeBtn">Kapat</button>
+    `;
+  } else {
+    editor.innerHTML=`
+      <div style="font-weight:800">${d.id} • Değer Gir</div>
+      <div><label>Hedef</label><input type="number" min="0" value="${I(d.hedef)}" data-k="hedef"></div>
+      <div><label>Gerçekleşen</label><input type="number" min="0" value="${I(d.gercek)}" data-k="gercek"></div>
+      <div><label>Red</label><input type="number" min="0" value="${I(d.red)}" data-k="red"></div>
+      <button class="closeBtn">Kapat</button>
+    `;
+  }
+
+  edRow.appendChild(editor);
+  container.append(edRow);
+
+  function update(){
+    d.hedef=I(d.hedef); d.gercek=I(d.gercek); d.red=I(d.red);
+    if(d.red>d.gercek) d.red=d.gercek;
+
+    // Cycle/süre normalize
+    if(opts.hasCycle){
+      d.cycle = Math.max(1, I(d.cycle||0));
+      d.calisma = Math.max(1, I(d.calisma||0));
+    }
+
+    // Hedef barı
+    bT.style.width='100%'; tLbl.textContent=`${d.hedef}`;
+
+    // Gerçekleşen
+    const ap = clamp(pct(d.gercek,d.hedef),0,100);
+    bA.style.width=ap.toFixed(0)+'%'; aLbl.textContent=`${d.gercek} (${P(ap)}%)`;
+
+    // Red
+    const rp = clamp(pct(d.red,d.hedef),0,100);
+    bS.style.width=rp.toFixed(0)+'%';
+    const redText=`${d.red}`;
+    if(rp>0 && redFitsInside(bSbox,rp)){ sLblIn.textContent=redText; sOut.textContent=''; }
+    else { sLblIn.textContent=''; sOut.textContent=redText; sOut.style.left=`calc(${rp}% + 6px)`; }
+
+    // OEE / KPI + Sonuç
+    const {o,k}=calcRow(d);
+    const oZ=P(clamp(o,0,100)), kZ=P(clamp(k,0,100));
+    oBar.style.width=oZ+'%'; kBar.style.width=kZ+'%';
+    oLbl.textContent=`${oZ}%`; kLbl.textContent=`${kZ}%`;
+    res.textContent=`${P((oZ+kZ)/2)}%`;
+
+    if(typeof generalUpdate==='function') generalUpdate();
+    saveState();
+  }
+
+  name.addEventListener('click',()=>{const s=editor.classList.toggle('show'); name.classList.toggle('selected',s)});
+  editor.querySelector('.closeBtn').addEventListener('click',()=>{editor.classList.remove('show'); name.classList.remove('selected')});
+
+  editor.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input',e=>{
+      const k=e.target.getAttribute('data-k');
+      const val=+e.target.value;
+      if(k==='hedef') d.hedef=val;
+      else if(k==='gercek') d.gercek=val;
+      else if(k==='red') d.red=val;
+      else if(k==='cycle') d.cycle=val;
+      else if(k==='calisma') d.calisma=val;
+      update();
+    });
+  });
+
+  update();
+  return {update};
+}
+
+/* ================== Kurulum & Genel ================== */
+function buildSheet(rowsEl,dataRef,generalUpdate,opts){
+  rowsEl.innerHTML='';
+  return dataRef.map(d=>makeRow(rowsEl,d,generalUpdate,opts));
+}
+
+function updateGeneral(){
+  setGeneral('cnc',    totals(cncData));
+  setGeneral('kalite', totals(kaliteData));
+  setGeneral('kum',    totals(kumData));
+  setGeneral('paket',  totals(paketData));
+}
+
+/* Toggle aç/kapat */
+function hookRow(rowId,sheetId){
+  const row=document.getElementById(rowId);
+  const sheet=document.getElementById(sheetId);
+  row.addEventListener('click',()=>{
+    const isActive=row.classList.contains('active');
+    document.querySelectorAll('.g-row').forEach(r=>r.classList.remove('active'));
+    document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('active'));
+    if(isActive){ document.body.classList.remove('has-detail'); }
+    else{ document.body.classList.add('has-detail'); row.classList.add('active'); sheet.classList.add('active'); }
+  });
+}
+
+/* Başlat */
+initHeader();
+buildSheet(document.getElementById('cncRows'),   cncData,   updateGeneral, {hasCycle:false});
+buildSheet(document.getElementById('kaliteRows'),kaliteData,updateGeneral, {hasCycle:false});
+buildSheet(document.getElementById('kumRows'),   kumData,   updateGeneral, {hasCycle:true});
+document.getElementById('paketRows').innerHTML='';
+updateGeneral();
+saveState();
+
+hookRow('g-row-cnc','cncSheet');
+hookRow('g-row-kalite','kaliteSheet');
+hookRow('g-row-kum','kumSheet');
+hookRow('g-row-paket','paketSheet');
+
+/* Genel arka plan scale fix */
+function fixGeneralBG(){
+  const gw=document.getElementById('generalWrap'); if(!gw) return;
+  const scaled=gw.getBoundingClientRect().height, natural=gw.offsetHeight;
+  gw.style.setProperty('--g-extra', Math.max(0,Math.round(scaled-natural))+4+'px');
+}
+fixGeneralBG();
+addEventListener('resize',fixGeneralBG);
+
+/* İstersen ilk açılışta Kumlamayı aç: */
+// document.getElementById('g-row-kum').click();
+</script>
+</body>
+</html>

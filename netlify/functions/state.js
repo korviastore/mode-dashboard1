@@ -4,7 +4,19 @@ export async function handler(event) {
   const siteID = process.env.BLOB_SITE_ID || process.env.NETLIFY_SITE_ID;
   const token  = process.env.BLOB_TOKEN    || process.env.NETLIFY_API_TOKEN;
 
-  const opts = (siteID && token) ? { siteID, token } : undefined;
+  // --- ZORUNLU: Manual yol. Token/siteID yoksa asla getStore çağırma.
+  if (!siteID || !token) {
+    return {
+      statusCode: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({
+        error: 'Missing credentials',
+        need: 'Set BLOB_TOKEN (secret) and BLOB_SITE_ID (Project ID) in Environment variables (Production).'
+      })
+    };
+  }
+
+  const store = getStore('mode-dashboard', { siteID, token });
 
   if (event.httpMethod === 'OPTIONS') {
     return {
@@ -16,19 +28,6 @@ export async function handler(event) {
       }
     };
   }
-
-  if (!opts && !process.env.NETLIFY_BLOBS_CONTEXT) {
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({
-        error: 'Blobs not configured',
-        need: 'Add BLOB_TOKEN (secret) and BLOB_SITE_ID (Project ID) env vars OR create a Blobs database.'
-      })
-    };
-  }
-
-  const store = getStore('mode-dashboard', opts);
 
   if (event.httpMethod === 'GET') {
     const value = await store.get('state', { type: 'json' }).catch(() => null);
